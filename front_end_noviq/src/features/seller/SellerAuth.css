@@ -1,0 +1,91 @@
+.seller-auth-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+  background: #f5f7fb;
+  font-family: "Be Vietnam Pro", sans-serif;
+}
+
+.seller-auth-card {
+  display: grid;
+  width: min(100%, 420px);
+  gap: 16px;
+  padding: 36px;
+  border: 1px solid #e8ebf2;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 16px 48px rgb(34 47 76 / 8%);
+}
+
+.seller-auth-card h1,
+.seller-auth-card p {
+  margin: 0;
+}
+
+.seller-auth-card h1 {
+  color: #242d40;
+  font-size: 24px;
+}
+
+.seller-auth-card p {
+  color: #687286;
+  font-size: 13px;
+}
+
+.seller-auth-brand {
+  color: #263b78;
+  font-size: 22px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.seller-auth-brand span {
+  display: block;
+  margin-top: 3px;
+  color: #8690a4;
+  font-size: 10px;
+  letter-spacing: 1.4px;
+}
+
+.seller-auth-card label {
+  display: grid;
+  gap: 7px;
+  color: #3c465a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.seller-auth-card input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #dfe4ee;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.seller-auth-card button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 8px;
+  background: #3156bc;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+
+.seller-auth-card button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.seller-auth-card .seller-auth-error {
+  color: #bd283d;
+}
+
+.seller-auth-back {
+  color: #3156bc;
+  font-size: 13px;
+  text-align: center;
+  text-decoration: none;
+}
