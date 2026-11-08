@@ -84,7 +84,9 @@ HTTPS and set `SESSION_COOKIE_SAMESITE=None` and
 Set the frontend build variable `VITE_API_BASE_URL` to the deployed API origin;
 leave it empty for local development, where Vite proxies `/api` to Flask.
 For Cloud SQL, run migrations as an explicit release step against the intended
-database; the application does not migrate the schema automatically.
+database; the application does not migrate the schema automatically. The
+Cloud Build deployment pipeline runs pending migrations using a Cloud Run Job
+before deploying the backend service.
 
 ## Build the Cloud Run container
 
@@ -111,14 +113,17 @@ explicit release step before routing production traffic.
 ## Deploy with Cloud Build
 
 `cloudbuild.yaml` builds and pushes the backend image to Artifact Registry,
-then deploys that image to Cloud Run. Create the Artifact Registry Docker
-repository, Cloud SQL instance, Secret Manager secrets, and runtime service
-account before connecting a Cloud Build trigger to this file.
+updates and executes a Cloud Run Job to apply pending database migrations, and
+then deploys that image to the Cloud Run service. Create the Artifact Registry
+Docker repository, Cloud SQL instance and database, Secret Manager secrets,
+and runtime service account before connecting a Cloud Build trigger to this
+file.
 
 Update the substitutions at the top of `cloudbuild.yaml` for the deployment:
 
-- `_REGION`, `_AR_REPOSITORY`, `_IMAGE`, and `_SERVICE` identify the region,
-  Artifact Registry repository, image, and Cloud Run service.
+- `_REGION`, `_AR_REPOSITORY`, `_IMAGE`, `_SERVICE`, and `_MIGRATION_JOB`
+  identify the region, Artifact Registry repository, image, Cloud Run service,
+  and migration job.
 - `_CLOUDSQL_INSTANCE` must be the full `PROJECT_ID:REGION:INSTANCE_ID`.
 - Store the complete MySQL SQLAlchemy URL in `_DATABASE_URL_SECRET` and a
   strong random application key in `_SECRET_KEY_SECRET`. The database URL
@@ -128,12 +133,17 @@ Update the substitutions at the top of `cloudbuild.yaml` for the deployment:
   `https://noviq.example`; list multiple origins separated by commas.
 
 Grant the Cloud Build service account permission to push to the repository,
-deploy Cloud Run services, and act as the runtime service account. Grant the
-runtime service account Secret Manager Secret Accessor on the two secrets and
-Cloud SQL Client on the project. Connect the GitHub repository to a Cloud Build
-trigger that uses `back_end_noviq/cloudbuild.yaml`.
+deploy Cloud Run services and jobs, execute Cloud Run jobs, and act as the
+runtime service account. Grant the runtime service account Secret Manager
+Secret Accessor on the database URL secret and Cloud SQL Client on the project.
+The backend service also needs Secret Manager Secret Accessor on the application
+key secret. Connect the GitHub repository to a Cloud Build trigger that uses
+`back_end_noviq/cloudbuild.yaml`.
 
 The trigger deploys whenever it runs. Configure its branch filter and decide
 whether it should deploy staging or production before enabling automatic
-deployments. The build does not run migrations; back up the target database
-and apply reviewed migrations as a separate release step.
+deployments. Each run executes `flask --app run db upgrade` before deploying
+the service; Alembic applies only migrations not yet recorded in the database.
+Review schema changes and back up production data before deployment. For
+zero-downtime releases, keep migrations backward-compatible with both the
+currently serving and newly deployed application revisions.

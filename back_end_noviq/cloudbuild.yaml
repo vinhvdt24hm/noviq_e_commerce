@@ -3,6 +3,7 @@ substitutions:
   _AR_REPOSITORY: noviq-containers
   _IMAGE: noviq-backend
   _SERVICE: noviq-backend
+  _MIGRATION_JOB: noviq-db-migrate
   _CLOUDSQL_INSTANCE: hk261-cc-g05-507808:asia-southeast1:ecommerce-mysql
   _DATABASE_URL_SECRET: noviq-database-url
   _SECRET_KEY_SECRET: noviq-secret-key
@@ -24,6 +25,35 @@ steps:
     args:
       - push
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE}:$SHORT_SHA
+
+  - id: Configure database migration job
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - ${_MIGRATION_JOB}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --service-account=${_RUNTIME_SERVICE_ACCOUNT}
+      - --set-cloudsql-instances=${_CLOUDSQL_INSTANCE}
+      - --set-secrets=DATABASE_URL=${_DATABASE_URL_SECRET}:latest
+      - --command=flask
+      - --args=--app,run,db,upgrade
+      - --max-retries=0
+      - --task-timeout=10m
+
+  - id: Run database migrations
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - ${_MIGRATION_JOB}
+      - --region=${_REGION}
+      - --wait
 
   - id: Deploy backend to Cloud Run
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
