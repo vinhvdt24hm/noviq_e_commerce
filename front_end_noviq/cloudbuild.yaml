@@ -1,5 +1,5 @@
 substitutions:
-  _BACKEND_URL: "https://your-backend-url.run.app"
+  _BACKEND_URL: "https://noviq-backend-560567056272.asia-southeast1.run.app"
 
 steps:
   - id: Install frontend dependencies
