@@ -40,7 +40,7 @@ steps:
       - --set-cloudsql-instances=${_CLOUDSQL_INSTANCE}
       - --set-secrets=DATABASE_URL=${_DATABASE_URL_SECRET}:latest
       - --command=flask
-      - --args=--app,run,db,upgrade
+      - --args=--app,run,db,stamp,20261103_repair_tables
       - --max-retries=0
       - --task-timeout=10m
 
