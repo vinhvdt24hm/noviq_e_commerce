@@ -1,4 +1,4 @@
-import { formatPrice } from './formatPrice'
+import { formatPrice } from '../../utils/formatPrice'
 
 const placeholderImage = 'https://placehold.co/120x120?text=NOVIQ'
 
@@ -46,6 +46,7 @@ export default function CartPage({
                   }}
                 />
                 <div className="cart-page-item-info">
+                  <span>{product.store?.name || 'Cửa hàng'}</span>
                   <span>{product.category || 'Sản phẩm'}</span>
                   <h2>{product.name}</h2>
                   <strong>{formatPrice(product.price)}</strong>
@@ -96,7 +97,9 @@ export default function CartPage({
             <button className="checkout-btn" type="button" onClick={onCheckout}>
               Tiến hành đặt hàng <span>→</span>
             </button>
-            <p className="checkout-note">Thanh toán khi nhận hàng (COD).</p>
+            <p className="checkout-note">
+              Thanh toán khi nhận hàng (COD). Đơn hàng sẽ được tách theo từng cửa hàng.
+            </p>
           </aside>
         </div>
       )}

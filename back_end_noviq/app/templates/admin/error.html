@@ -1,0 +1,15 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ status }} · NOVIQ Admin{% endblock %}
+
+{% block body %}
+  <main class="login-shell">
+    <section class="login-card">
+      <a class="brand" href="{{ url_for('admin.admin_login') }}">NOVIQ <span>ADMIN</span></a>
+      <p class="eyebrow">LỖI {{ status }}</p>
+      <h1>Không thể tiếp tục</h1>
+      <p class="muted">{{ message }}</p>
+      <a class="button primary full-width link-button" href="{{ url_for('admin.admin_login') }}">Quay lại đăng nhập</a>
+    </section>
+  </main>
+{% endblock %}

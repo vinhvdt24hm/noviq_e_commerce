@@ -15,6 +15,9 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    PRODUCT_IMAGES_BUCKET = os.getenv("PRODUCT_IMAGES_BUCKET")
+    PRODUCT_IMAGES_PUBLIC_BASE_URL = os.getenv("PRODUCT_IMAGES_PUBLIC_BASE_URL")
+    MAX_CONTENT_LENGTH = 26 * 1024 * 1024
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv(

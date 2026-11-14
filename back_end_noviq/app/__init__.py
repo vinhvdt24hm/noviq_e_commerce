@@ -1,6 +1,7 @@
 import hmac
 
 from flask import Flask, jsonify, request, session
+from werkzeug.exceptions import RequestEntityTooLarge
 import click
 
 from config import Config
@@ -8,11 +9,13 @@ from config import Config
 from app.extensions import db, migrate, cors
 
 
-def create_app():
+def create_app(test_config=None):
 
     app = Flask(__name__)
 
     app.config.from_object(Config)
+    if test_config is not None:
+        app.config.update(test_config)
 
     # Initialize extensions
     db.init_app(app)
@@ -35,60 +38,65 @@ def create_app():
             if not expected or not hmac.compare_digest(expected, supplied):
                 return jsonify({"error": "Valid CSRF token required."}), 403
 
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_large_request(error):
+        if request.path.startswith("/api/"):
+            return jsonify({
+                "error": "Request is too large. Product image uploads are limited to 25 MB."
+            }), 413
+        return jsonify({"error": "Request is too large."}), 413
+
     from app import models
     from app.routes.auth_routes import auth_bp
+    from app.routes.admin_routes import admin_bp
     from app.routes.order_routes import order_bp
     from app.routes.product_routes import product_bp
+    from app.routes.review_routes import reviews_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(order_bp, url_prefix="/api/orders")
     app.register_blueprint(product_bp, url_prefix="/api/products")
+    app.register_blueprint(reviews_bp, url_prefix="/api/products")
+    app.register_blueprint(admin_bp)
 
     @app.cli.command("create-seller")
     @click.option("--email", prompt=True)
     @click.option("--full-name", prompt="Seller name")
+    @click.option("--store-name", prompt="Store name")
     @click.password_option(confirmation_prompt=True)
-    def create_seller(email, full_name, password):
-        """Create a seller account or promote an existing user."""
-        from werkzeug.security import generate_password_hash
+    def create_seller(email, full_name, store_name, password):
+        """Create a seller account and its store."""
+        from app.services.accounts import create_seller_account
 
-        from app.models import User
-
-        normalized_email = email.strip().lower()
-        if (
-            not full_name.strip()
-            or "@" not in normalized_email
-            or len(password) < 8
-        ):
-            raise click.ClickException(
-                "Enter a seller name, a valid email, and a password with at least 8 characters."
+        try:
+            user, store = create_seller_account(
+                email,
+                full_name,
+                store_name,
+                password,
             )
+        except ValueError as error:
+            raise click.ClickException(str(error)) from error
+        click.echo(f"Seller account ready: {user.email} ({store.slug})")
 
-        user = User.query.filter_by(email=normalized_email).first()
-        existing_seller = User.query.filter(
-            User.role == "seller",
-            User.email != normalized_email,
-        ).first()
-        if existing_seller is not None:
-            raise click.ClickException(
-                "This store supports one seller account. "
-                f"The current seller account is {existing_seller.email}."
-            )
+    @app.cli.command("create-admin")
+    @click.option("--email", prompt=True)
+    @click.option("--full-name", prompt="Admin name")
+    @click.option(
+        "--password",
+        prompt=True,
+        hide_input=True,
+        confirmation_prompt=True,
+        envvar="ADMIN_BOOTSTRAP_PASSWORD",
+    )
+    def create_admin(email, full_name, password):
+        """Create an admin account or promote an existing customer."""
+        from app.services.accounts import create_admin_account
 
-        if user is None:
-            user = User(
-                email=normalized_email,
-                full_name=full_name.strip(),
-                password_hash=generate_password_hash(password),
-            )
-            db.session.add(user)
-        else:
-            user.full_name = full_name.strip()
-            user.password_hash = generate_password_hash(password)
-            user.is_active = True
-
-        user.role = "seller"
-        db.session.commit()
-        click.echo(f"Seller account ready: {normalized_email}")
+        try:
+            user = create_admin_account(email, full_name, password)
+        except ValueError as error:
+            raise click.ClickException(str(error)) from error
+        click.echo(f"Admin account ready: {user.email}")
 
     return app

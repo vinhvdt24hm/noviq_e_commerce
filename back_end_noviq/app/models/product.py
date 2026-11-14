@@ -5,6 +5,12 @@ class Product(db.Model):
     __tablename__ = "products"
 
     product_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    store_id = db.Column(
+        db.Integer,
+        db.ForeignKey("stores.store_id"),
+        nullable=False,
+        index=True,
+    )
     category_id = db.Column(
         db.Integer,
         db.ForeignKey(
@@ -28,3 +34,18 @@ class Product(db.Model):
         db.DateTime, nullable=True, server_default=db.func.current_timestamp()
     )
     category = db.relationship("Category")
+    store = db.relationship("Store", back_populates="products")
+    images = db.relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="ProductImage.display_order",
+        passive_deletes=True,
+    )
+    reviews = db.relationship(
+        "ProductReview",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ProductReview.created_at.desc()",
+    )

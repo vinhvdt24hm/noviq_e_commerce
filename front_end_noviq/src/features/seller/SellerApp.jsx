@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createProduct,
   deleteProduct as deleteProductRequest,
   fetchCurrentUser,
-  fetchProducts,
+  fetchSellerProducts,
   fetchSellerOrders,
   login,
   logout,
@@ -17,6 +17,7 @@ import Orders from "./Orders";
 import { ProductForm, Products } from "./ProductManagement";
 import SellerLayout from "./SellerLayout";
 import SellerLogin from "./SellerLogin";
+import { buildSellerNotificationItems } from "./sellerNotificationData";
 import "../../app/App.css";
 
 function mapProduct(product) {
@@ -34,20 +35,38 @@ function App() {
   const [dataLoading, setDataLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadSellerData() {
+  const refreshSellerData = useCallback(async () => {
+    const [productData, orderData] = await Promise.all([
+      fetchSellerProducts(),
+      fetchSellerOrders(),
+    ]);
+    setProducts(
+      productData
+        .filter((product) => product.is_active !== false)
+        .map(mapProduct),
+    );
+    setOrders(orderData);
+  }, []);
+
+  const loadSellerData = useCallback(async () => {
     setDataLoading(true);
     setError("");
     try {
-      const [productData, orderData] = await Promise.all([
-        fetchProducts(),
-        fetchSellerOrders(),
-      ]);
-      setProducts(productData.filter((product) => product.is_active !== false).map(mapProduct));
-      setOrders(orderData);
+      await refreshSellerData();
     } finally {
       setDataLoading(false);
     }
-  }
+  }, [refreshSellerData]);
+
+  useEffect(() => {
+    if (!seller) return undefined;
+    const intervalId = window.setInterval(() => {
+      refreshSellerData().catch((requestError) => {
+        setError(requestError.message);
+      });
+    }, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, [seller, refreshSellerData]);
 
   async function reloadSellerData() {
     try {
@@ -78,12 +97,16 @@ function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadSellerData]);
 
   const lowStock = products.filter(
     (product) => product.stock > 0 && product.stock <= 10,
   ).length;
   const outStock = products.filter((product) => product.stock === 0).length;
+  const notifications = useMemo(
+    () => buildSellerNotificationItems(orders, products),
+    [orders, products],
+  );
 
   function navigate(nextPage) {
     setPage(nextPage);
@@ -121,18 +144,26 @@ function App() {
 
   async function saveProduct(product) {
     setError("");
+    const imageFiles = product.image_files || [];
     const payload = {
       name: product.name,
-      category: product.category,
+      category_id: product.category_id || null,
       price: product.price,
       stock: product.stock,
       description: product.description,
-      image_url: product.image_url,
+      image_url: product.image_urls?.[0] || product.image_url,
+      image_urls: product.image_urls,
     };
     try {
+      let requestBody = payload;
+      if (imageFiles.length > 0) {
+        requestBody = new FormData();
+        requestBody.append("product", JSON.stringify(payload));
+        imageFiles.forEach((file) => requestBody.append("images", file));
+      }
       const saved = product.id
-        ? await updateProduct(product.id, payload)
-        : await createProduct(payload);
+        ? await updateProduct(product.id, requestBody)
+        : await createProduct(requestBody);
       const mapped = mapProduct(saved);
       setProducts((current) =>
         product.id
@@ -186,7 +217,7 @@ function App() {
       );
       if (status === "cancelled") {
         try {
-          setProducts((await fetchProducts()).filter(
+          setProducts((await fetchSellerProducts()).filter(
             (product) => product.is_active !== false,
           ).map(mapProduct));
         } catch (requestError) {
@@ -228,6 +259,7 @@ function App() {
       title={title}
       alertCount={lowStock + outStock}
       seller={seller}
+      notifications={notifications}
       onLogout={handleLogout}
       onNavigate={navigate}
     >

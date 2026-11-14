@@ -1,0 +1,141 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Tổng quan | NOVIQ Admin{% endblock %}
+
+{% block body %}
+  <main class="page-shell">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="notices">
+          {% for category, message in messages %}
+            <p class="notice {{ category }}" role="status">{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="welcome-panel">
+      <div>
+        <p class="eyebrow eyebrow-light">NOVIQ MARKETPLACE · TỔNG QUAN</p>
+        <h1>Chào {{ admin.full_name.split()[0] }},<br>đây là tình hình hôm nay.</h1>
+        <p>Theo dõi hoạt động cửa hàng, đơn hàng và cộng đồng khách hàng trên một màn hình.</p>
+      </div>
+      <div class="welcome-actions">
+        <a class="button button-glass" href="#create-seller">+ Tạo tài khoản seller</a>
+        <a class="button button-white" href="{{ url_for('admin.admin_customers') }}">Quản lý khách hàng <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="welcome-decoration" aria-hidden="true"><span></span><span></span><span></span></div>
+    </section>
+
+    <section class="metrics" aria-label="Chỉ số tổng quan">
+      <article class="metric-card">
+        <div class="metric-topline"><span class="metric-icon icon-violet">S</span><span class="metric-caption">MARKETPLACE</span></div>
+        <span class="metric-label">Cửa hàng hoạt động</span>
+        <strong>{{ active_stores }}</strong>
+        <small>{{ total_stores }} cửa hàng toàn hệ thống</small>
+      </article>
+      <article class="metric-card">
+        <div class="metric-topline"><span class="metric-icon icon-blue">P</span><span class="metric-caption">DANH MỤC</span></div>
+        <span class="metric-label">Sản phẩm đang bán</span>
+        <strong>{{ active_products }}</strong>
+        <small>{{ total_products }} sản phẩm toàn hệ thống</small>
+      </article>
+      <article class="metric-card">
+        <div class="metric-topline"><span class="metric-icon icon-green">✓</span><span class="metric-caption">ĐƠN HÀNG</span></div>
+        <span class="metric-label">Đơn hoàn tất</span>
+        <strong>{{ completed_orders }}</strong>
+        <small>Đơn đã giao thành công</small>
+      </article>
+      <article class="metric-card">
+        <div class="metric-topline"><span class="metric-icon icon-orange">₫</span><span class="metric-caption">DOANH THU</span></div>
+        <span class="metric-label">Doanh thu hoàn tất</span>
+        <strong class="metric-currency">{{ "{:,.0f}".format(total_revenue) }} ₫</strong>
+        <small>Chỉ tính đơn đã hoàn tất</small>
+      </article>
+      <a class="metric-card metric-card-link" href="{{ url_for('admin.admin_customers') }}">
+        <div class="metric-topline"><span class="metric-icon icon-pink">C</span><span class="metric-caption">CỘNG ĐỒNG</span></div>
+        <span class="metric-label">Tài khoản khách hàng</span>
+        <strong>{{ total_customers }}</strong>
+        <small>{{ active_customers }} tài khoản đang hoạt động <span aria-hidden="true">→</span></small>
+      </a>
+    </section>
+
+    <section class="chart-grid" aria-label="Biểu đồ kinh doanh sáu tháng gần nhất">
+      <article class="panel chart-panel">
+        <div class="section-heading">
+          <div><p class="eyebrow">DOANH THU</p><h2>Xu hướng doanh thu</h2></div>
+          <span class="chart-legend"><i class="legend-dot violet-dot"></i>Đơn hoàn tất</span>
+        </div>
+        <p class="panel-subtitle">Doanh thu theo tháng trong 6 tháng gần nhất</p>
+        <div class="bar-chart" role="img" aria-label="Biểu đồ doanh thu theo tháng">
+          {% for month in chart_months %}
+            <div class="bar-column">
+              <span class="bar-value">{{ "{:,.0f}".format(month.revenue) }}</span>
+              <div class="bar-track">
+                <div class="bar-fill revenue-fill" style="height: {{ month.revenue_percent }}%" title="{{ "{:,.0f}".format(month.revenue) }} ₫"></div>
+              </div>
+              <span class="bar-label">{{ month.label }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </article>
+      <article class="panel chart-panel">
+        <div class="section-heading">
+          <div><p class="eyebrow">ĐƠN HÀNG</p><h2>Đơn hoàn tất theo tháng</h2></div>
+          <span class="chart-legend"><i class="legend-dot blue-dot"></i>Đơn hàng</span>
+        </div>
+        <p class="panel-subtitle">Số đơn đã hoàn tất trong cùng kỳ</p>
+        <div class="bar-chart" role="img" aria-label="Biểu đồ số đơn hoàn tất theo tháng">
+          {% for month in chart_months %}
+            <div class="bar-column">
+              <span class="bar-value">{{ month.orders }}</span>
+              <div class="bar-track">
+                <div class="bar-fill orders-fill" style="height: {{ month.orders_percent }}%" title="{{ month.orders }} đơn"></div>
+              </div>
+              <span class="bar-label">{{ month.label }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+
+    <section class="management-grid" aria-label="Quản lý marketplace">
+      <a class="management-card" href="{{ url_for('admin.admin_stores') }}">
+        <div class="management-card-top">
+          <span class="management-icon icon-violet">S</span>
+          <span class="management-arrow" aria-hidden="true">↗</span>
+        </div>
+        <p class="eyebrow">MARKETPLACE</p>
+        <h2>Quản lý cửa hàng</h2>
+        <p>Xem chủ cửa hàng, sản phẩm, doanh thu và trạng thái hoạt động.</p>
+        <span class="management-count">{{ total_stores }} cửa hàng <span>·</span> {{ active_stores }} đang hoạt động</span>
+      </a>
+      <a class="management-card" href="{{ url_for('admin.admin_products') }}">
+        <div class="management-card-top">
+          <span class="management-icon icon-blue">P</span>
+          <span class="management-arrow" aria-hidden="true">↗</span>
+        </div>
+        <p class="eyebrow">DANH MỤC</p>
+        <h2>Quản lý sản phẩm</h2>
+        <p>Theo dõi tồn kho, trạng thái và hiệu quả bán của từng sản phẩm.</p>
+        <span class="management-count">{{ total_products }} sản phẩm <span>·</span> {{ active_products }} đang bán</span>
+      </a>
+    </section>
+
+    <section class="panel" id="create-seller">
+      <div class="section-heading">
+        <div><p class="eyebrow">ONBOARDING</p><h2>Tạo tài khoản người bán</h2></div>
+      </div>
+      <p class="muted">Tài khoản seller và cửa hàng sẽ được tạo cùng lúc. Hãy gửi mật khẩu ban đầu cho người bán qua kênh an toàn.</p>
+      <form class="seller-form" method="post" action="{{ url_for('admin.admin_create_seller') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Họ tên người bán<input name="full_name" required maxlength="255" autocomplete="name"></label>
+        <label>Email đăng nhập<input name="email" type="email" required maxlength="150" autocomplete="email"></label>
+        <label>Tên cửa hàng<input name="store_name" required maxlength="150"></label>
+        <label>Mật khẩu ban đầu<input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+        <div class="form-actions"><button class="button primary" type="submit">Tạo seller và cửa hàng</button></div>
+      </form>
+    </section>
+    <footer class="footer">NOVIQ Admin · Chỉ dành cho tài khoản quản trị được cấp quyền.</footer>
+  </main>
+{% endblock %}

@@ -1,0 +1,115 @@
+.customer-store .home-benefits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.customer-store .home-benefit {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 82px;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  padding: 13px 14px;
+  border: 1px solid #eee6ed;
+  border-radius: 15px;
+  background: linear-gradient(140deg, #fff, #fdfafd);
+  box-shadow: 0 6px 18px rgb(52 32 48 / 4%);
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s,
+    transform 0.18s;
+}
+
+.customer-store .home-benefit:hover {
+  transform: translateY(-2px);
+  border-color: #f0c4d7;
+  box-shadow: 0 10px 24px rgb(52 32 48 / 8%);
+}
+
+.customer-store .home-benefit__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+}
+
+.customer-store .home-benefit--delivery .home-benefit__icon {
+  background: #edf4ff;
+  color: #5578c7;
+}
+
+.customer-store .home-benefit--trust .home-benefit__icon {
+  background: #eaf8f1;
+  color: #42916b;
+}
+
+.customer-store .home-benefit--payment .home-benefit__icon {
+  background: #fff0f6;
+  color: #d83a82;
+}
+
+.customer-store .home-benefit__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.customer-store .home-benefit__label {
+  color: #948795;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.customer-store .home-benefit__content strong {
+  overflow: hidden;
+  color: #302833;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-store .home-benefit__content small {
+  overflow: hidden;
+  color: #8c828f;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .customer-store .home-benefit {
+    gap: 9px;
+    padding-inline: 10px;
+  }
+
+  .customer-store .home-benefit__icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .customer-store .home-benefit__content strong {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 700px) {
+  .customer-store .home-benefits {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .customer-store .home-benefit {
+    min-height: 64px;
+    padding: 9px 12px;
+    border-radius: 13px;
+  }
+}

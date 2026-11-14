@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Quản trị NOVIQ{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+  </head>
+  <body>
+    {% if admin is defined %}
+      <header class="topbar">
+        <div class="topbar-inner">
+          <a class="brand" href="{{ url_for('admin.admin_dashboard') }}">
+            <span class="brand-mark">N</span>
+            <span>NOVIQ<small>ADMIN CONSOLE</small></span>
+          </a>
+          <nav class="primary-nav" aria-label="Điều hướng quản trị">
+            <a class="nav-link {{ 'selected' if request.endpoint == 'admin.admin_dashboard' else '' }}" href="{{ url_for('admin.admin_dashboard') }}">Tổng quan</a>
+            <a class="nav-link {{ 'selected' if request.endpoint == 'admin.admin_stores' else '' }}" href="{{ url_for('admin.admin_stores') }}">Cửa hàng</a>
+            <a class="nav-link {{ 'selected' if request.endpoint == 'admin.admin_products' else '' }}" href="{{ url_for('admin.admin_products') }}">Sản phẩm</a>
+            <a class="nav-link {{ 'selected' if request.endpoint == 'admin.admin_categories' else '' }}" href="{{ url_for('admin.admin_categories') }}">Danh mục</a>
+            <a class="nav-link {{ 'selected' if request.endpoint == 'admin.admin_customers' else '' }}" href="{{ url_for('admin.admin_customers') }}">Khách hàng</a>
+          </nav>
+          <div class="topbar-account">
+            <div class="admin-avatar" aria-hidden="true">{{ admin.full_name[:1]|upper }}</div>
+            <span class="admin-meta"><strong>{{ admin.full_name }}</strong><small>Quản trị viên</small></span>
+            <form method="post" action="{{ url_for('admin.admin_logout') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button quiet" type="submit">Đăng xuất</button>
+            </form>
+          </div>
+        </div>
+      </header>
+    {% endif %}
+    {% block body %}{% endblock %}
+  </body>
+</html>

@@ -1,0 +1,106 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Sản phẩm | NOVIQ Admin{% endblock %}
+
+{% block body %}
+  <main class="page-shell">
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">DANH MỤC MARKETPLACE</p>
+        <h1>Quản lý sản phẩm</h1>
+        <p class="muted">Theo dõi giá bán, tồn kho và doanh thu của sản phẩm trên toàn hệ thống.</p>
+      </div>
+      <a class="button quiet" href="{{ url_for('admin.admin_dashboard') }}">← Về tổng quan</a>
+    </section>
+
+    <section class="customer-summary" aria-label="Thống kê sản phẩm">
+      <article class="summary-card">
+        <span class="summary-icon icon-blue">P</span>
+        <div><small>TỔNG SẢN PHẨM</small><strong>{{ total_products }}</strong></div>
+      </article>
+      <article class="summary-card">
+        <span class="summary-icon icon-green">✓</span>
+        <div><small>ĐANG BÁN</small><strong>{{ active_products }}</strong></div>
+      </article>
+      <article class="summary-card">
+        <span class="summary-icon icon-orange">–</span>
+        <div><small>ĐÃ ẨN</small><strong>{{ total_products - active_products }}</strong></div>
+      </article>
+    </section>
+
+    <section class="panel customer-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">HIỆU QUẢ BÁN HÀNG</p><h2>Danh sách sản phẩm</h2></div>
+        <span class="count">{{ products.total }} kết quả</span>
+      </div>
+      <form class="admin-filters" method="get" action="{{ url_for('admin.admin_products') }}">
+        <label class="search-field">
+          <span class="sr-only">Tìm tên sản phẩm hoặc cửa hàng</span>
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input type="search" name="q" value="{{ search }}" placeholder="Tên sản phẩm hoặc cửa hàng">
+        </label>
+        <label class="filter-select">
+          <span class="sr-only">Lọc theo trạng thái</span>
+          <select name="status">
+            <option value="all" {{ 'selected' if status == 'all' else '' }}>Tất cả trạng thái</option>
+            <option value="active" {{ 'selected' if status == 'active' else '' }}>Đang bán</option>
+            <option value="inactive" {{ 'selected' if status == 'inactive' else '' }}>Đã ẩn</option>
+          </select>
+        </label>
+        <button class="button primary" type="submit">Lọc danh sách</button>
+        {% if search or status != 'all' %}
+          <a class="button quiet" href="{{ url_for('admin.admin_products') }}">Xóa lọc</a>
+        {% endif %}
+      </form>
+
+      {% if products.items %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Sản phẩm</th><th>Cửa hàng</th><th>Giá bán</th><th>Tồn kho</th><th>Đã bán</th><th>Doanh thu</th><th>Trạng thái</th></tr>
+            </thead>
+            <tbody>
+              {% for product in products.items %}
+                {% set sales = product_sales.get(product.product_id, {}) %}
+                <tr>
+                  <td>
+                    <div class="entity-cell">
+                      <span class="entity-avatar icon-blue" aria-hidden="true">P</span>
+                      <span><strong>{{ product.product_name }}</strong><small>#{{ product.product_id }}</small></span>
+                    </div>
+                  </td>
+                  <td>{{ product.store.name }}<small>{{ product.store.owner.email }}</small></td>
+                  <td>{{ "{:,.0f}".format(product.price) }} ₫</td>
+                  <td>{{ product.stock }}</td>
+                  <td>{{ sales.get("units_sold", 0) }}</td>
+                  <td>{{ "{:,.0f}".format(sales.get("revenue", 0)) }} ₫</td>
+                  <td><span class="status {{ 'active' if product.is_active else 'inactive' }}">{{ "Đang bán" if product.is_active else "Đã ẩn" }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if products.pages > 1 %}
+          <nav class="pagination" aria-label="Phân trang sản phẩm">
+            <span>Trang {{ products.page }} / {{ products.pages }}</span>
+            <div>
+              {% if products.has_prev %}
+                <a class="page-button" href="{{ url_for('admin.admin_products', q=search, status=status, page=products.prev_num) }}">← Trước</a>
+              {% endif %}
+              {% if products.has_next %}
+                <a class="page-button" href="{{ url_for('admin.admin_products', q=search, status=status, page=products.next_num) }}">Sau →</a>
+              {% endif %}
+            </div>
+          </nav>
+        {% endif %}
+      {% else %}
+        <div class="empty-state empty-illustration">
+          <span aria-hidden="true">⌕</span>
+          <strong>Không tìm thấy sản phẩm</strong>
+          <p>Thử đổi từ khóa hoặc bộ lọc trạng thái.</p>
+        </div>
+      {% endif %}
+    </section>
+    <footer class="footer">Số lượng bán và doanh thu chỉ tính đơn hàng đã hoàn tất.</footer>
+  </main>
+{% endblock %}

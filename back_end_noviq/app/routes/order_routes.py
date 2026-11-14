@@ -1,11 +1,12 @@
 from decimal import Decimal
 from uuid import uuid4
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from sqlalchemy import update
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.extensions import db
-from app.models import OrderLine, OrderRecord, Product
+from app.models import OrderLine, OrderRecord, Product, Store
 from app.routes.auth_routes import current_user, login_required, seller_required
 
 order_bp = Blueprint("orders", __name__)
@@ -23,12 +24,18 @@ def serialize_order(order):
     return {
         "id": order.order_number,
         "order_id": order.order_id,
+        "checkout_id": order.checkout_id,
         "customer": order.recipient_name,
         "phone_number": order.phone_number,
         "address": order.shipping_address,
         "date": order.created_at.isoformat() if order.created_at else None,
         "total": float(order.total_amount),
         "status": order.status,
+        "store": {
+            "id": order.store.store_id,
+            "name": order.store.name,
+            "slug": order.store.slug,
+        },
         "items": [
             {
                 "product_id": item.product_id,
@@ -46,6 +53,8 @@ def serialize_order(order):
 @login_required
 def create_order():
     user = current_user()
+    if user.role != "customer":
+        return jsonify({"error": "Only customer accounts can place orders."}), 403
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "A JSON request body is required."}), 400
@@ -95,61 +104,83 @@ def create_order():
 
     products = {
         product.product_id: product
-        for product in Product.query.filter(
+        for product in Product.query.options(joinedload(Product.store)).filter(
             Product.product_id.in_(quantities),
             Product.is_active.is_(True),
+            Product.store.has(Store.is_active.is_(True)),
         ).all()
     }
     if len(products) != len(quantities):
         return jsonify({"error": "One or more products are unavailable."}), 409
 
-    total = sum(
-        (Decimal(products[product_id].price) * quantity)
-        for product_id, quantity in quantities.items()
-    )
-    if total >= Decimal("10000000000"):
-        return jsonify({"error": "Order total exceeds the supported limit."}), 400
-
-    order = OrderRecord(
-        user_id=user.user_id,
-        order_number=f"NQ-{uuid4().hex[:12].upper()}",
-        recipient_name=recipient_name.strip(),
-        phone_number=phone_number.strip(),
-        shipping_address=shipping_address.strip(),
-        total_amount=total,
-        status="pending",
-    )
-    db.session.add(order)
-
+    grouped_items = {}
     for product_id, quantity in quantities.items():
         product = products[product_id]
-        result = db.session.execute(
-            update(Product)
-            .where(
-                Product.product_id == product_id,
-                Product.is_active.is_(True),
-                Product.stock >= quantity,
-            )
-            .values(stock=Product.stock - quantity)
-        )
-        if result.rowcount != 1:
-            db.session.rollback()
-            return jsonify(
-                {"error": f"Not enough stock for {product.product_name}."}
-            ), 409
+        grouped_items.setdefault(product.store_id, []).append((product, quantity))
 
-        order.items.append(
-            OrderLine(
-                product_id=product_id,
-                product_name=product.product_name,
-                image_url=product.image_url,
-                quantity=quantity,
-                unit_price=product.price,
-            )
+    totals = {
+        store_id: sum(
+            (Decimal(product.price) * quantity for product, quantity in items),
+            Decimal("0"),
         )
+        for store_id, items in grouped_items.items()
+    }
+    if any(total >= Decimal("10000000000") for total in totals.values()):
+        return jsonify({"error": "Order total exceeds the supported limit."}), 400
 
+    checkout_id = uuid4().hex
+    orders = []
+    for store_id, items in grouped_items.items():
+        order = OrderRecord(
+            store_id=store_id,
+            store=items[0][0].store,
+            checkout_id=checkout_id,
+            user_id=user.user_id,
+            order_number=f"NQ-{uuid4().hex[:12].upper()}",
+            recipient_name=recipient_name.strip(),
+            phone_number=phone_number.strip(),
+            shipping_address=shipping_address.strip(),
+            total_amount=totals[store_id],
+            status="pending",
+        )
+        db.session.add(order)
+
+        for product, quantity in items:
+            result = db.session.execute(
+                update(Product)
+                .where(
+                    Product.product_id == product.product_id,
+                    Product.store_id == store_id,
+                    Product.is_active.is_(True),
+                    Product.stock >= quantity,
+                )
+                .values(stock=Product.stock - quantity)
+            )
+            if result.rowcount != 1:
+                db.session.rollback()
+                return jsonify(
+                    {"error": f"Not enough stock for {product.product_name}."}
+                ), 409
+
+            order.items.append(
+                OrderLine(
+                    product_id=product.product_id,
+                    product_name=product.product_name,
+                    image_url=product.image_url,
+                    quantity=quantity,
+                    unit_price=product.price,
+                )
+            )
+        orders.append(order)
+
+    db.session.flush()
     db.session.commit()
-    return jsonify({"data": serialize_order(order)}), 201
+    return jsonify({
+        "data": {
+            "checkout_id": checkout_id,
+            "orders": [serialize_order(order) for order in orders],
+        }
+    }), 201
 
 
 @order_bp.get("/")
@@ -157,7 +188,11 @@ def create_order():
 def get_customer_orders():
     user = current_user()
     orders = (
-        OrderRecord.query.filter_by(user_id=user.user_id)
+        OrderRecord.query.options(
+            joinedload(OrderRecord.store),
+            selectinload(OrderRecord.items),
+        )
+        .filter_by(user_id=user.user_id)
         .order_by(OrderRecord.created_at.desc())
         .all()
     )
@@ -167,7 +202,15 @@ def get_customer_orders():
 @order_bp.get("/seller")
 @seller_required
 def get_seller_orders():
-    orders = OrderRecord.query.order_by(OrderRecord.created_at.desc()).all()
+    orders = (
+        OrderRecord.query.options(
+            joinedload(OrderRecord.store),
+            selectinload(OrderRecord.items),
+        )
+        .filter_by(store_id=g.seller_store.store_id)
+        .order_by(OrderRecord.created_at.desc())
+        .all()
+    )
     return jsonify({"data": [serialize_order(order) for order in orders]})
 
 
@@ -180,7 +223,10 @@ def update_order_status(order_id):
         return jsonify({"error": "Invalid order status."}), 400
 
     order = (
-        OrderRecord.query.filter_by(order_id=order_id)
+        OrderRecord.query.filter_by(
+            order_id=order_id,
+            store_id=g.seller_store.store_id,
+        )
         .with_for_update()
         .first()
     )

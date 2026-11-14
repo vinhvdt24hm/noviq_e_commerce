@@ -7,8 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY requirements.txt .
-RUN python -c "from pathlib import Path; path = Path('requirements.txt'); path.write_text(path.read_text(encoding='utf-16'), encoding='utf-8')" \
-    && python -m pip install -r requirements.txt gunicorn==23.0.0 \
+RUN python -m pip install -r requirements.txt gunicorn==23.0.0 \
     && groupadd --system app \
     && useradd --system --gid app --home-dir /app app
 

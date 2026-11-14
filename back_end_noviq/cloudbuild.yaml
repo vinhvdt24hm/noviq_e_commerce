@@ -4,11 +4,12 @@ substitutions:
   _IMAGE: noviq-backend
   _SERVICE: noviq-backend
   _MIGRATION_JOB: noviq-db-migrate
-  _CLOUDSQL_INSTANCE: hk261-cc-g05-507808:asia-southeast1:ecommerce-mysql
+  _CLOUDSQL_INSTANCE: noviq-ecommerce-dev:asia-southeast1:ecommerce-mysql
   _DATABASE_URL_SECRET: noviq-database-url
   _SECRET_KEY_SECRET: noviq-secret-key
-  _RUNTIME_SERVICE_ACCOUNT: noviq-runtime@hk261-cc-g05-507808.iam.gserviceaccount.com
+  _RUNTIME_SERVICE_ACCOUNT: adminservice@noviq-ecommerce-dev.iam.gserviceaccount.com
   _CORS_ORIGINS: "https://front-end-noviq.web.app,https://front-end-noviq.firebaseapp.com"
+  _PRODUCT_IMAGES_BUCKET: noviq-product-images
 
 steps:
   - id: Build backend image
@@ -71,7 +72,7 @@ steps:
       - --service-account=${_RUNTIME_SERVICE_ACCOUNT}
       - --add-cloudsql-instances=${_CLOUDSQL_INSTANCE}
       - --set-secrets=DATABASE_URL=${_DATABASE_URL_SECRET}:latest,SECRET_KEY=${_SECRET_KEY_SECRET}:latest
-      - --set-env-vars=^@^SESSION_COOKIE_SAMESITE=None@SESSION_COOKIE_SECURE=true@CORS_ORIGINS=${_CORS_ORIGINS}
+      - --set-env-vars=^@^SESSION_COOKIE_SAMESITE=None@SESSION_COOKIE_SECURE=true@CORS_ORIGINS=${_CORS_ORIGINS}@PRODUCT_IMAGES_BUCKET=${_PRODUCT_IMAGES_BUCKET}
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE}:$SHORT_SHA

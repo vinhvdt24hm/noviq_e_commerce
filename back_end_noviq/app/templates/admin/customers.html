@@ -1,0 +1,124 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Khách hàng | NOVIQ Admin{% endblock %}
+
+{% block body %}
+  <main class="page-shell">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="notices">
+          {% for category, message in messages %}
+            <p class="notice {{ category }}" role="status">{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">CỘNG ĐỒNG NOVIQ</p>
+        <h1>Quản lý khách hàng</h1>
+        <p class="muted">Tra cứu tài khoản và kiểm soát quyền truy cập của khách hàng.</p>
+      </div>
+      <a class="button quiet" href="{{ url_for('admin.admin_dashboard') }}">← Về tổng quan</a>
+    </section>
+
+    <section class="customer-summary" aria-label="Thống kê tài khoản khách hàng">
+      <article class="summary-card">
+        <span class="summary-icon icon-pink">C</span>
+        <div><small>TỔNG TÀI KHOẢN</small><strong>{{ total_customers }}</strong></div>
+      </article>
+      <article class="summary-card">
+        <span class="summary-icon icon-green">✓</span>
+        <div><small>ĐANG HOẠT ĐỘNG</small><strong>{{ active_customers }}</strong></div>
+      </article>
+      <article class="summary-card">
+        <span class="summary-icon icon-orange">–</span>
+        <div><small>ĐÃ KHÓA</small><strong>{{ total_customers - active_customers }}</strong></div>
+      </article>
+    </section>
+
+    <section class="panel customer-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">TÀI KHOẢN</p><h2>Danh sách khách hàng</h2></div>
+        <span class="count">{{ customers.total }} kết quả</span>
+      </div>
+
+      <form class="customer-filters" method="get" action="{{ url_for('admin.admin_customers') }}">
+        <label class="search-field">
+          <span class="sr-only">Tìm theo tên hoặc email</span>
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input type="search" name="q" value="{{ search }}" placeholder="Tìm theo tên hoặc email">
+        </label>
+        <label class="filter-select">
+          <span class="sr-only">Lọc theo trạng thái</span>
+          <select name="status">
+            <option value="all" {{ 'selected' if status == 'all' else '' }}>Tất cả trạng thái</option>
+            <option value="active" {{ 'selected' if status == 'active' else '' }}>Đang hoạt động</option>
+            <option value="inactive" {{ 'selected' if status == 'inactive' else '' }}>Đã khóa</option>
+          </select>
+        </label>
+        <button class="button primary" type="submit">Lọc danh sách</button>
+        {% if search or status != 'all' %}
+          <a class="button quiet" href="{{ url_for('admin.admin_customers') }}">Xóa lọc</a>
+        {% endif %}
+      </form>
+
+      {% if customers.items %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Khách hàng</th><th>Số điện thoại</th><th>Ngày tham gia</th><th>Trạng thái</th><th>Thao tác</th></tr>
+            </thead>
+            <tbody>
+              {% for customer in customers.items %}
+                <tr>
+                  <td>
+                    <div class="customer-cell">
+                      <span class="customer-avatar" aria-hidden="true">{{ customer.full_name[:1]|upper }}</span>
+                      <span><strong>{{ customer.full_name }}</strong><small>{{ customer.email }}</small></span>
+                    </div>
+                  </td>
+                  <td>{{ customer.phone_number or "—" }}</td>
+                  <td>{{ customer.created_at.strftime("%d/%m/%Y") }}</td>
+                  <td><span class="status {{ 'active' if customer.is_active else 'inactive' }}">{{ "Đang hoạt động" if customer.is_active else "Đã khóa" }}</span></td>
+                  <td>
+                    <form method="post" action="{{ url_for('admin.admin_toggle_customer_status', user_id=customer.user_id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                      <input type="hidden" name="q" value="{{ search }}">
+                      <input type="hidden" name="status" value="{{ status }}">
+                      <input type="hidden" name="page" value="{{ customers.page }}">
+                      <button class="button {{ 'danger-quiet' if customer.is_active else 'success-quiet' }}" type="submit">
+                        {{ "Khóa tài khoản" if customer.is_active else "Mở khóa" }}
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if customers.pages > 1 %}
+          <nav class="pagination" aria-label="Phân trang khách hàng">
+            <span>Trang {{ customers.page }} / {{ customers.pages }}</span>
+            <div>
+              {% if customers.has_prev %}
+                <a class="page-button" href="{{ url_for('admin.admin_customers', q=search, status=status, page=customers.prev_num) }}">← Trước</a>
+              {% endif %}
+              {% if customers.has_next %}
+                <a class="page-button" href="{{ url_for('admin.admin_customers', q=search, status=status, page=customers.next_num) }}">Sau →</a>
+              {% endif %}
+            </div>
+          </nav>
+        {% endif %}
+      {% else %}
+        <div class="empty-state empty-illustration">
+          <span aria-hidden="true">⌕</span>
+          <strong>Không tìm thấy khách hàng</strong>
+          <p>Thử đổi từ khóa hoặc bộ lọc trạng thái.</p>
+        </div>
+      {% endif %}
+    </section>
+    <footer class="footer">Khóa tài khoản sẽ chặn đăng nhập; dữ liệu đơn hàng của khách vẫn được giữ nguyên.</footer>
+  </main>
+{% endblock %}

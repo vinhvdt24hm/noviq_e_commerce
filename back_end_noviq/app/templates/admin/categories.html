@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Danh mục | NOVIQ Admin{% endblock %}
+
+{% block body %}
+  <main class="page-shell">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="notices">
+          {% for category, message in messages %}
+            <p class="notice {{ category }}" role="status">{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">TAXONOMY MARKETPLACE</p>
+        <h1>Quản lý danh mục</h1>
+        <p class="muted">Tạo cây danh mục dùng chung cho các gian hàng.</p>
+      </div>
+      <a class="button quiet" href="{{ url_for('admin.admin_dashboard') }}">← Về tổng quan</a>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">MỞ RỘNG CÂY DANH MỤC</p><h2>Thêm danh mục</h2></div>
+      </div>
+      <form class="seller-form" method="post" action="{{ url_for('admin.admin_create_category') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Tên danh mục<input name="category_name" required maxlength="100"></label>
+        <label>Danh mục cha
+          <select name="parent_id">
+            <option value="">Danh mục cấp cao nhất</option>
+            {% for category in categories %}
+              <option value="{{ category.category_id }}">{{ category_paths[category.category_id] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="form-actions"><button class="button primary" type="submit">Thêm danh mục</button></div>
+      </form>
+    </section>
+
+    <section class="panel customer-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">CẤU TRÚC HIỆN TẠI</p><h2>Cây danh mục</h2></div>
+        <span class="count">{{ categories|length }} danh mục</span>
+      </div>
+      {% if categories %}
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ĐƯỜNG DẪN</th><th>MÃ</th><th>TRẠNG THÁI</th></tr></thead>
+            <tbody>
+              {% for category in categories %}
+                <tr>
+                  <td>{{ category_paths[category.category_id] }}</td>
+                  <td>{{ category.category_id }}</td>
+                  <td><span class="status {{ 'active' if category.is_active else 'inactive' }}">{{ 'Đang hoạt động' if category.is_active else 'Đã tắt' }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty-state">Chưa có danh mục.</p>
+      {% endif %}
+    </section>
+    <footer class="footer">Người bán chọn danh mục chuẩn khi đăng sản phẩm; danh mục mới áp dụng cho toàn marketplace.</footer>
+  </main>
+{% endblock %}

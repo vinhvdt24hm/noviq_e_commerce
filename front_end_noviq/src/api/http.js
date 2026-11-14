@@ -30,8 +30,12 @@ export async function apiRequest(path, { method = "GET", body, ...options } = {}
   };
 
   if (body !== undefined) {
-    headers.set("Content-Type", "application/json");
-    requestOptions.body = JSON.stringify(body);
+    if (typeof FormData !== "undefined" && body instanceof FormData) {
+      requestOptions.body = body;
+    } else {
+      headers.set("Content-Type", "application/json");
+      requestOptions.body = JSON.stringify(body);
+    }
   }
 
   if (!["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())) {

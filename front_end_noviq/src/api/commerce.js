@@ -5,8 +5,55 @@ export async function fetchProducts() {
   return result.data;
 }
 
+export async function fetchProductPage({
+  page = 1,
+  perPage = 12,
+  search = "",
+  categoryId = "",
+  sort = "featured",
+} = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+    sort,
+  });
+  if (search.trim()) params.set("search", search.trim());
+  if (categoryId && categoryId !== "all") {
+    params.set("category_id", categoryId);
+  }
+
+  const result = await apiRequest(`/api/products/?${params.toString()}`);
+  if (
+    !result ||
+    !Array.isArray(result.data) ||
+    !result.pagination ||
+    !Array.isArray(result.categories)
+  ) {
+    throw new Error("Invalid paginated product response.");
+  }
+
+  return {
+    products: result.data,
+    pagination: result.pagination,
+    categories: result.categories,
+  };
+}
+
 export async function fetchProduct(productId) {
   const result = await apiRequest(`/api/products/${productId}`);
+  return result.data;
+}
+
+export async function fetchProductReviews(productId) {
+  const result = await apiRequest(`/api/products/${productId}/reviews`);
+  return result;
+}
+
+export async function createProductReview(productId, review) {
+  const result = await apiRequest(`/api/products/${productId}/reviews`, {
+    method: "POST",
+    body: review,
+  });
   return result.data;
 }
 
@@ -38,8 +85,18 @@ export async function updateProductStock(productId, stock) {
   return result.data;
 }
 
+export async function fetchSellerProducts() {
+  const result = await apiRequest("/api/products/seller");
+  return result.data;
+}
+
 export async function fetchSellerOrders() {
   const result = await apiRequest("/api/orders/seller");
+  return result.data;
+}
+
+export async function fetchProductCategories() {
+  const result = await apiRequest("/api/products/categories");
   return result.data;
 }
 

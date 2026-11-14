@@ -20,7 +20,7 @@ export default function SellerLogin({ onLogin, error, loading }) {
       <form className="seller-auth-card" onSubmit={submit}>
         <a className="seller-auth-brand" href="/">NOVIQ <span>QUẢN LÝ CỬA HÀNG</span></a>
         <h1>Đăng nhập quản lý cửa hàng</h1>
-        <p>Dùng tài khoản người bán duy nhất của cửa hàng để tiếp tục.</p>
+        <p>Dùng tài khoản người bán được cấp cho cửa hàng của bạn để tiếp tục.</p>
         {loading ? <p>Đang kiểm tra phiên đăng nhập...</p> : (
           <>
             <label>Email

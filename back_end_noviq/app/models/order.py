@@ -5,10 +5,17 @@ class OrderRecord(db.Model):
     __tablename__ = "orders"
 
     order_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    store_id = db.Column(
+        db.Integer,
+        db.ForeignKey("stores.store_id"),
+        nullable=False,
+        index=True,
+    )
     user_id = db.Column(
         db.Integer, db.ForeignKey("users.user_id"), nullable=False, index=True
     )
     order_number = db.Column(db.String(32), nullable=False, unique=True)
+    checkout_id = db.Column(db.String(32), nullable=False, index=True)
     recipient_name = db.Column(db.String(255), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     shipping_address = db.Column(db.String(500), nullable=False)
@@ -24,6 +31,7 @@ class OrderRecord(db.Model):
         "OrderLine", back_populates="order", cascade="all, delete-orphan"
     )
     customer = db.relationship("User")
+    store = db.relationship("Store", back_populates="orders")
 
 
 class OrderLine(db.Model):

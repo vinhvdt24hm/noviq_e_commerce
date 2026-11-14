@@ -1,0 +1,22 @@
+.customer-store {
+  --customer-ink: #29232a;
+  --customer-muted: #817984;
+  --customer-line: #eee7ed;
+  --customer-pink: #e83e88;
+  --customer-pink-dark: #c92f72;
+  --customer-pink-soft: #fff0f6;
+  --customer-surface: #fff;
+  --customer-canvas: #fcf9fb;
+  --customer-shadow: 0 14px 36px rgb(52 32 48 / 7%);
+  background: var(--customer-canvas);
+}
+
+.customer-store :focus-visible {
+  outline: 3px solid rgb(232 62 136 / 55%);
+  outline-offset: 3px;
+}
+
+.customer-store button,
+.customer-store a {
+  -webkit-tap-highlight-color: transparent;
+}

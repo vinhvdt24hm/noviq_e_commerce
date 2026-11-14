@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Đăng nhập quản trị | NOVIQ{% endblock %}
+
+{% block body %}
+  <main class="login-shell">
+    <section class="login-card">
+      <a class="brand" href="/">NOVIQ <span>ADMIN</span></a>
+      <p class="eyebrow">KHU VỰC QUẢN TRỊ</p>
+      <h1>Đăng nhập</h1>
+      <p class="muted">Dành cho tài khoản quản trị website.</p>
+      <form method="post" action="{{ url_for('admin.admin_login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="email">Email quản trị</label>
+        <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+        <label for="password">Mật khẩu</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+        <button class="button primary full-width" type="submit">Đăng nhập quản trị</button>
+      </form>
+    </section>
+  </main>
+{% endblock %}

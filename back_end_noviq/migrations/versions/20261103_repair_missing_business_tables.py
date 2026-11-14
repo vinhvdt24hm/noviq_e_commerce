@@ -26,9 +26,11 @@ BUSINESS_TABLES = {
 def upgrade():
     existing_tables = set(sa.inspect(op.get_bind()).get_table_names())
     unexpected_tables = existing_tables & BUSINESS_TABLES
+    if unexpected_tables == BUSINESS_TABLES:
+        return
     if unexpected_tables:
         raise RuntimeError(
-            "Cannot repair business tables because some already exist: "
+            "Cannot repair business tables because only some exist: "
             + ", ".join(sorted(unexpected_tables))
         )
 
@@ -171,9 +173,5 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("order_items")
-    op.drop_index("ix_orders_user_id", table_name="orders")
-    op.drop_table("orders")
-    op.drop_table("products")
-    op.drop_table("users")
-    op.drop_table("categories")
+    # The preceding revisions own these tables and remove them during downgrade.
+    pass

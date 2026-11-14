@@ -1,11 +1,11 @@
 import secrets
 from functools import wraps
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, g, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
-from app.models import User
+from app.models import Store, User
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -22,12 +22,19 @@ def db_user_by_id(user_id):
 
 
 def user_payload(user):
-    return {
+    payload = {
         "id": user.user_id,
         "full_name": user.full_name,
         "email": user.email,
         "role": user.role,
     }
+    if user.role == "seller" and user.store is not None:
+        payload["store"] = {
+            "id": user.store.store_id,
+            "name": user.store.name,
+            "slug": user.store.slug,
+        }
+    return payload
 
 
 def login_required(view):
@@ -49,10 +56,15 @@ def seller_required(view):
             return jsonify({"error": "Authentication required."}), 401
         if user.role != "seller":
             return jsonify({"error": "Seller permission required."}), 403
-        if User.query.filter_by(role="seller", is_active=True).count() != 1:
+        store = Store.query.filter_by(
+            owner_user_id=user.user_id,
+            is_active=True,
+        ).first()
+        if store is None:
             return jsonify(
-                {"error": "The store must have exactly one active seller account."}
+                {"error": "An active seller store is required."}
             ), 403
+        g.seller_store = store
         return view(*args, **kwargs)
 
     return wrapped
@@ -119,6 +131,8 @@ def login():
         or not check_password_hash(user.password_hash, password)
     ):
         return jsonify({"error": "Email or password is incorrect."}), 401
+    if user.role == "admin":
+        return jsonify({"error": "Use the admin sign-in page."}), 403
 
     session.clear()
     session["user_id"] = user.user_id

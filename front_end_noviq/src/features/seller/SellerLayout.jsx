@@ -1,5 +1,4 @@
 import {
-  Bell,
   ChevronRight,
   LayoutDashboard,
   Menu,
@@ -10,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import SellerNotifications from "./SellerNotifications.jsx";
 
 const navItems = [
   { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
@@ -23,6 +23,7 @@ export default function SellerLayout({
   title,
   alertCount,
   seller,
+  notifications,
   onLogout,
   onNavigate,
   children,
@@ -62,7 +63,7 @@ export default function SellerLayout({
         <div className="shop-card">
           <div className="shop-avatar">N</div>
           <div>
-            <strong>{seller?.full_name || "NOVIQ Store"}</strong>
+            <strong>{seller?.store?.name || seller?.full_name || "NOVIQ Store"}</strong>
             <small>Gian hàng của bạn</small>
           </div>
           <span className="online-dot" />
@@ -130,10 +131,12 @@ export default function SellerLayout({
             </div>
           </div>
           <div className="top-actions">
-            <button className="icon-button" title="Thông báo">
-              <Bell size={19} />
-              <i />
-            </button>
+            <SellerNotifications
+              key={seller?.id}
+              sellerId={seller?.id}
+              notifications={notifications}
+              onNavigate={navigate}
+            />
             <div className="user-profile">
               <div className="user-avatar">N</div>
               <div>

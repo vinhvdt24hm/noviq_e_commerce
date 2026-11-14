@@ -24,3 +24,5 @@ class User(db.Model):
         server_default=db.func.current_timestamp(),
         onupdate=db.func.current_timestamp(),
     )
+
+    store = db.relationship("Store", back_populates="owner", uselist=False)

@@ -2,20 +2,33 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   createOrder,
   fetchCurrentUser,
-  fetchCustomerOrders,
-  fetchProducts,
+  fetchProductCategories,
+  fetchProductPage,
   login,
   logout,
   registerCustomer,
 } from '../../api/commerce'
 import AccountDialog from './AccountDialog'
-import CartPage from './CartPage'
-import CheckoutDialog from './CheckoutDialog'
-import CustomerOrdersDialog from './CustomerOrdersDialog'
-import ProductDetailPage from './ProductDetailPage'
+import CartPage from '../cart/CartPage'
+import CheckoutDialog from '../orders/CheckoutDialog'
+import CustomerOrdersPage from '../orders/CustomerOrdersPage'
+import CustomerMainHeader from './CustomerMainHeader'
+import ProductPagination from '../products/ProductPagination'
+import ProductDetailPage from '../products/ProductDetailPage'
+import CustomerUtilityBar from './CustomerUtilityBar'
+import HomeBenefits from './HomeBenefits'
 import SupportChatWidget from './SupportChatWidget'
-import { formatPrice } from './formatPrice'
+import { formatPrice } from '../../utils/formatPrice'
 import './Customer.css';
+import './styles/tokens.css'
+import './styles/storefront.css'
+import './styles/catalog.css'
+import './styles/responsive.css'
+import './styles/customer-utility-bar.css'
+import './styles/customer-main-header.css'
+import './styles/home-benefits.css'
+import '../products/styles/product-detail.css'
+import '../products/styles/product-reviews.css'
 
 const categories = [
   { name: 'Thời trang', icon: '👕' },
@@ -26,6 +39,27 @@ const categories = [
   { name: 'Thể thao', icon: '⚽' },
 ]
 const categoryIcons = Object.fromEntries(categories.map((item) => [item.name, item.icon]))
+const PRODUCTS_PER_PAGE = 12
+
+function flattenCategoryTree(nodes, ancestors = []) {
+  return nodes.flatMap((node) => {
+    const path = [...ancestors, node.name]
+    return [
+      { id: node.id, name: node.name, path: path.join(' / ') },
+      ...flattenCategoryTree(node.children || [], path),
+    ]
+  })
+}
+
+function mapCatalogProduct(product) {
+  return {
+    ...product,
+    image: product.image_url,
+    emoji: '🛍️',
+    color: 'linear-gradient(145deg,#f1eefa,#ddd8eb)',
+    badge: product.stock === 0 ? 'Hết hàng' : 'Còn hàng',
+  }
+}
 
 function getProductIdFromPath() {
   const match = window.location.pathname.match(/^\/products\/(\d+)\/?$/)
@@ -34,6 +68,10 @@ function getProductIdFromPath() {
 
 function isCartPath() {
   return window.location.pathname.replace(/\/+$/, '') === '/cart'
+}
+
+function isOrdersPath() {
+  return window.location.pathname.replace(/\/+$/, '') === '/orders'
 }
 
 const slides = [
@@ -65,39 +103,67 @@ const slides = [
 
 function CustomerApp() {
   const [catalog, setCatalog] = useState([])
+  const [featuredCatalog, setFeaturedCatalog] = useState([])
+  const [categoryTree, setCategoryTree] = useState([])
+  const [pagination, setPagination] = useState({
+    page: 1,
+    per_page: PRODUCTS_PER_PAGE,
+    total_items: 0,
+    total_pages: 0,
+    has_next: false,
+    has_prev: false,
+  })
   const [selectedProductId, setSelectedProductId] = useState(getProductIdFromPath)
   const [cartPageOpen, setCartPageOpen] = useState(isCartPath)
+  const [ordersPageOpen, setOrdersPageOpen] = useState(isOrdersPath)
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState('')
+  const [featuredError, setFeaturedError] = useState('')
   const [customer, setCustomer] = useState(null)
   const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [sort, setSort] = useState('featured')
+  const [catalogPage, setCatalogPage] = useState(1)
+  const [catalogRefreshKey, setCatalogRefreshKey] = useState(0)
   const [slideIndex, setSlideIndex] = useState(0)
   const [cart, setCart] = useState([])
   const [toast, setToast] = useState('')
   const [accountOpen, setAccountOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [checkoutPending, setCheckoutPending] = useState(false)
-  const [ordersOpen, setOrdersOpen] = useState(false)
-  const [customerOrders, setCustomerOrders] = useState([])
-  const [ordersError, setOrdersError] = useState('')
 
   useEffect(() => {
-    function syncProductRoute() {
+    function syncCustomerRoute() {
       setSelectedProductId(getProductIdFromPath())
       setCartPageOpen(isCartPath())
+      setOrdersPageOpen(isOrdersPath())
     }
 
-    window.addEventListener('popstate', syncProductRoute)
-    return () => window.removeEventListener('popstate', syncProductRoute)
+    window.addEventListener('popstate', syncCustomerRoute)
+    return () => window.removeEventListener('popstate', syncCustomerRoute)
   }, [])
 
   useEffect(() => {
     let active = true
-    fetchProducts()
+    fetchProductPage({
+      page: catalogPage,
+      perPage: PRODUCTS_PER_PAGE,
+      search: searchQuery,
+      categoryId: category,
+      sort,
+    })
       .then((result) => {
-        if (active) setCatalog(result)
+        if (active) {
+          setCatalog(result.products)
+          setPagination(result.pagination)
+          if (
+            result.pagination.total_pages > 0 &&
+            catalogPage > result.pagination.total_pages
+          ) {
+            setCatalogPage(result.pagination.total_pages)
+          }
+        }
       })
       .catch((error) => {
         if (active) setCatalogError(error.message)
@@ -105,6 +171,53 @@ function CustomerApp() {
       .finally(() => {
         if (active) setCatalogLoading(false)
       })
+    return () => {
+      active = false
+    }
+  }, [catalogPage, searchQuery, category, sort, catalogRefreshKey])
+
+  useEffect(() => {
+    let active = true
+    fetchProductCategories()
+      .then((result) => {
+        if (active) setCategoryTree(result)
+      })
+      .catch((error) => {
+        if (active) setToast(error.message)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetchProductPage({ page: 1, perPage: 4, sort: 'featured' })
+      .then((result) => {
+        if (active) {
+          setFeaturedCatalog(result.products)
+          setFeaturedError('')
+        }
+      })
+      .catch((error) => {
+        if (active) setFeaturedError(error.message)
+      })
+    return () => {
+      active = false
+    }
+  }, [catalogRefreshKey])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setCatalogPage(1)
+      setSearchQuery(search.trim())
+    }, 350)
+
+    return () => window.clearTimeout(timeout)
+  }, [search])
+
+  useEffect(() => {
+    let active = true
     fetchCurrentUser()
       .then((result) => {
         if (active) setCustomer(result)
@@ -117,32 +230,26 @@ function CustomerApp() {
     }
   }, [])
 
-  const products = useMemo(() => catalog.map((product) => ({
-    ...product,
-    image: product.image_url,
-    emoji: '🛍️',
-    color: 'linear-gradient(145deg,#f1eefa,#ddd8eb)',
-    badge: product.stock === 0 ? 'Hết hàng' : 'Sản phẩm',
-  })), [catalog])
-  const catalogCategories = useMemo(
-    () => [...new Set(products.map((product) => product.category))]
-      .filter(Boolean)
-      .map((name) => ({ name, icon: categoryIcons[name] || '✦' })),
-    [products],
+  const products = useMemo(() => catalog.map(mapCatalogProduct), [catalog])
+  const featuredProducts = useMemo(
+    () => featuredCatalog.map(mapCatalogProduct),
+    [featuredCatalog],
   )
-
-  const filteredProducts = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase('vi')
-    const result = products.filter((product) => {
-      const matchesCategory = category === 'all' || product.category === category
-      const matchesSearch = !query || `${product.name} ${product.category}`.toLocaleLowerCase('vi').includes(query)
-      return matchesCategory && matchesSearch
-    })
-
-    if (sort === 'priceAsc') result.sort((a, b) => a.price - b.price)
-    if (sort === 'priceDesc') result.sort((a, b) => b.price - a.price)
-    return result
-  }, [category, search, sort, products])
+  const visibleCategories = useMemo(
+    () => categoryTree.map((item) => ({
+      id: String(item.id),
+      name: item.name,
+      icon: categoryIcons[item.name] || '✦',
+    })),
+    [categoryTree],
+  )
+  const categoryOptions = useMemo(
+    () => flattenCategoryTree(categoryTree),
+    [categoryTree],
+  )
+  const selectedCategory = categoryOptions.find(
+    (item) => item.id === Number(category),
+  )
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0)
   const cartTotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0)
@@ -151,6 +258,8 @@ function CustomerApp() {
   function openProduct(productId) {
     window.history.pushState({}, '', `/products/${productId}`)
     setSelectedProductId(String(productId))
+    setCartPageOpen(false)
+    setOrdersPageOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -158,6 +267,7 @@ function CustomerApp() {
     window.history.pushState({}, '', '/')
     setSelectedProductId(null)
     setCartPageOpen(false)
+    setOrdersPageOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -165,14 +275,29 @@ function CustomerApp() {
     window.history.pushState({}, '', '/cart')
     setSelectedProductId(null)
     setCartPageOpen(true)
+    setOrdersPageOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  function changeCatalogPage(nextPage) {
+    setCatalogLoading(true)
+    setCatalogError('')
+    setCatalogPage(nextPage)
+    window.setTimeout(
+      () => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }),
+      0,
+    )
+  }
+
   function chooseCategory(nextCategory) {
+    setCatalogLoading(true)
+    setCatalogError('')
     const wasOnProductPage = Boolean(selectedProductId)
     if (wasOnProductPage) goHome()
     setCategory(nextCategory)
     setSearch('')
+    setSearchQuery('')
+    setCatalogPage(1)
     window.setTimeout(
       () => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }),
       0,
@@ -233,12 +358,38 @@ function CustomerApp() {
 
   function handleSearch(event) {
     event.preventDefault()
+    setCatalogLoading(true)
+    setCatalogError('')
     if (selectedProductId) goHome()
     setCategory('all')
+    setCatalogPage(1)
+    setSearchQuery(search.trim())
     window.setTimeout(
       () => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }),
       0,
     )
+  }
+
+  function changeSearch(value) {
+    setCatalogLoading(true)
+    setCatalogError('')
+    setSearch(value)
+  }
+
+  function changeSearchCategory(value) {
+    setCatalogLoading(true)
+    setCatalogError('')
+    setCategory(value)
+    setCatalogPage(1)
+  }
+
+  function searchTrendingTerm(term) {
+    setCatalogLoading(true)
+    setCatalogError('')
+    setSearch(term)
+    setSearchQuery(term)
+    setCategory('all')
+    setCatalogPage(1)
   }
 
   function handleNewsletter(event) {
@@ -274,7 +425,7 @@ function CustomerApp() {
   }
 
   async function handleOrderSubmit(details) {
-    const order = await createOrder({
+    const checkout = await createOrder({
       ...details,
       items: cart.map(({ product, quantity }) => ({
         product_id: product.id,
@@ -283,99 +434,59 @@ function CustomerApp() {
     })
     setCart([])
     setCheckoutOpen(false)
-    setToast(`Đặt hàng thành công: ${order.id}`)
+    setCatalogLoading(true)
+    setCatalogError('')
+    const orderNumbers = checkout.orders.map((order) => order.id).join(', ')
+    setToast(`Đặt hàng thành công: ${orderNumbers}`)
     window.setTimeout(() => setToast(''), 4000)
-    try {
-      setCatalog(await fetchProducts())
-    } catch (error) {
-      setToast(`Đơn đã được tạo, nhưng không thể tải lại tồn kho: ${error.message}`)
-      window.setTimeout(() => setToast(''), 5000)
-    }
+    setCatalogRefreshKey((key) => key + 1)
   }
 
-  async function showCustomerOrders() {
+  function showCustomerOrders() {
     if (!customer) {
       setAccountOpen(true)
       return
     }
-    try {
-      setOrdersError('')
-      setCustomerOrders(await fetchCustomerOrders())
-      setOrdersOpen(true)
-    } catch (error) {
-      setOrdersError(error.message)
-      setOrdersOpen(true)
-    }
+    window.history.pushState({}, '', '/orders')
+    setSelectedProductId(null)
+    setCartPageOpen(false)
+    setOrdersPageOpen(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
-    <div className="customer-store">
-      <div className="top-strip">
-        <div className="container top-strip-inner">
-          <div className="top-links">
-            <a href="/seller">Quản lý cửa hàng</a><span>|</span>
-            <a href="#footer">Trở thành đối tác NOVIQ</a><span>|</span>
-            <a href="#footer">Tải ứng dụng</a>
-          </div>
-          <div className="top-links">
-            <a href="#support">Hỗ trợ</a>
-            <button type="button" onClick={showCustomerOrders}>Theo dõi đơn hàng</button>
-            {customer ? (
-              <>
-                <span className="account-link">{customer.full_name}</span>
-                <button type="button" onClick={handleLogout}>Đăng xuất</button>
-              </>
-            ) : (
-              <button type="button" className="account-link" onClick={() => setAccountOpen(true)}>
-                Đăng nhập / Đăng ký
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className={`customer-store${selectedProductId ? ' customer-store--product-detail' : ''}`}>
+      <CustomerUtilityBar
+        customer={customer}
+        onOrdersClick={showCustomerOrders}
+        onLoginClick={() => setAccountOpen(true)}
+        onLogout={handleLogout}
+      />
 
-      <header className="site-header">
-        <div className="container header-main">
-          <a className="brand" href="/" onClick={(event) => { event.preventDefault(); goHome() }} aria-label="NOVIQ - Trang chủ">
-            <span className="brand-mark">N<span>✦</span></span>
-            <span className="brand-name">NOV<span className="brand-q">I</span>Q
-              <small>ONE PLATFORM. EVERY NEED.</small>
-            </span>
-          </a>
-          <form className="search" onSubmit={handleSearch}>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tìm sản phẩm, thương hiệu và danh mục..."
-              aria-label="Tìm kiếm sản phẩm"
-            />
-            <select aria-label="Danh mục tìm kiếm" value={category} onChange={(event) => setCategory(event.target.value)}>
-              <option value="all">Tất cả</option>
-              {catalogCategories.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
-            </select>
-            <button type="submit" className="search-btn">⌕ <span>Tìm kiếm</span></button>
-          </form>
-          <button className="cart-button" type="button" onClick={openCartPage} aria-label={`Mở giỏ hàng, ${cartCount} sản phẩm`}>
-            <span className="cart-icon">🛒</span><span className="cart-label">Giỏ hàng</span><b>{cartCount}</b>
-          </button>
-        </div>
-        <div className="container popular-searches">
-          <span>Xu hướng:</span>
-          {['tai nghe', 'áo thun', 'bình giữ nhiệt', 'đèn bàn'].map((term) => (
-            <button key={term} type="button" onClick={() => { setSearch(term); setCategory('all') }}>{term}</button>
-          ))}
-        </div>
-      </header>
+      <CustomerMainHeader
+        search={search}
+        category={category}
+        categories={categoryOptions}
+        cartCount={cartCount}
+        onHome={goHome}
+        onSearchSubmit={handleSearch}
+        onSearchChange={changeSearch}
+        onCategoryChange={changeSearchCategory}
+        onTrendingSearch={searchTrendingTerm}
+        onOpenCart={openCartPage}
+      />
 
       <main id="top">
-        {selectedProductId ? (
+        {ordersPageOpen ? (
+          <CustomerOrdersPage onBack={goHome} />
+        ) : selectedProductId ? (
           <ProductDetailPage
             key={selectedProductId}
             productId={selectedProductId}
-            customerName={customer?.full_name || ''}
+            customerName={customer?.role === 'customer' ? customer.full_name : ''}
             onBack={goHome}
             onAddToCart={addToCart}
+            onRequestLogin={() => setAccountOpen(true)}
           />
         ) : cartPageOpen ? (
           <CartPage
@@ -392,8 +503,8 @@ function CustomerApp() {
           <aside className="category-panel">
             <h2>Danh mục</h2>
             <button className={`category-link ${category === 'all' ? 'active' : ''}`} type="button" onClick={() => chooseCategory('all')}><span>✦</span> Tất cả sản phẩm</button>
-            {catalogCategories.map((item) => (
-              <button className={`category-link ${category === item.name ? 'active' : ''}`} data-category={item.name} key={item.name} type="button" onClick={() => chooseCategory(item.name)}>
+            {visibleCategories.map((item) => (
+              <button className={`category-link ${category === item.id ? 'active' : ''}`} data-category={item.id} key={item.id} type="button" onClick={() => chooseCategory(item.id)}>
                 <span>{item.icon}</span> {item.name}
               </button>
             ))}
@@ -423,11 +534,7 @@ function CustomerApp() {
                 ))}
               </div>
             </div>
-            <div className="service-row">
-              <div className="service-item"><span className="service-icon">🚚</span><div><b>Giao hàng tiện lợi</b><small>Theo dõi đơn dễ dàng</small></div></div>
-              <div className="service-item"><span className="service-icon">🛡️</span><div><b>Mua sắm an tâm</b><small>Thông tin rõ ràng</small></div></div>
-              <div className="service-item"><span className="service-icon">💳</span><div><b>Thanh toán khi nhận hàng</b><small>COD</small></div></div>
-            </div>
+            <HomeBenefits />
           </div>
         </section>
 
@@ -437,8 +544,8 @@ function CustomerApp() {
             <button className="text-link" type="button" onClick={() => chooseCategory('all')}>Xem tất cả →</button>
           </div>
           <div className="quick-grid">
-            {catalogCategories.map((item, index) => (
-              <button className="quick-category" data-category={item.name} key={item.name} type="button" onClick={() => chooseCategory(item.name)}>
+            {visibleCategories.map((item, index) => (
+              <button className="quick-category" data-category={item.id} key={item.id} type="button" onClick={() => chooseCategory(item.id)}>
                 <span className={`quick-icon ${['pink', 'blue', 'yellow', 'lilac', 'mint', 'peach'][index]}`}>{item.icon}</span>
                 <b>{item.name}</b><small>Khám phá sản phẩm</small>
               </button>
@@ -451,8 +558,11 @@ function CustomerApp() {
             <div className="flash-title"><span className="bolt">✦</span><div><span className="section-kicker">TỪ DANH MỤC SẢN PHẨM</span><h2>SẢN PHẨM NỔI BẬT</h2></div></div>
             <button className="text-link" type="button" onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}>Xem tất cả →</button>
           </div>
+          {featuredError ? (
+            <div className="empty-state"><p>Không tải được sản phẩm nổi bật: {featuredError}</p></div>
+          ) : (
           <div className="deal-grid">
-            {products.slice(0, 4).map((product) => (
+            {featuredProducts.map((product) => (
               <article
                 className="deal-card product-card-clickable"
                 key={product.id}
@@ -467,37 +577,45 @@ function CustomerApp() {
                 }}
               >
                 <div className="product-image" style={{ background: product.color }}>
-                  {product.image ? <img src={product.image} alt={product.name} /> : <span className="image-emoji">{product.emoji}</span>}
+                  {product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <span className="image-emoji">{product.emoji}</span>}
                 </div>
                 <h3>{product.name}</h3>
+                <small className="product-store-label">{product.store?.name}</small>
                 <div><span className="deal-price">{formatPrice(product.price)}</span></div>
                 <div className="sold-text">Còn {product.stock} sản phẩm</div>
                 <button className="add-cart deal-add-cart" type="button" disabled={product.stock === 0} onClick={(event) => { event.stopPropagation(); addToCart(product) }}>＋ Thêm vào giỏ</button>
               </article>
             ))}
           </div>
+          )}
         </section>
 
         <section className="container products-section" id="products">
           <div className="products-heading">
-            <div><span className="section-kicker">DÀNH RIÊNG CHO BẠN</span><h2>{search ? `Kết quả tìm kiếm: "${search}"` : category === 'all' ? 'Gợi ý hôm nay' : category}</h2><p className="muted">Những sản phẩm đáng khám phá trên NOVIQ.</p></div>
+            <div><span className="section-kicker">DÀNH RIÊNG CHO BẠN</span><h2>{search.trim() ? `Kết quả tìm kiếm: "${search.trim()}"` : category === 'all' ? 'Gợi ý hôm nay' : selectedCategory?.path || 'Danh mục'}</h2><p className="muted">Những sản phẩm đáng khám phá trên NOVIQ.</p></div>
             <div className="product-controls">
-              <select aria-label="Sắp xếp sản phẩm" value={sort} onChange={(event) => setSort(event.target.value)}>
+              <span className="product-result-count">{pagination.total_items} sản phẩm</span>
+              <select aria-label="Sắp xếp sản phẩm" value={sort} onChange={(event) => {
+                setCatalogLoading(true)
+                setCatalogError('')
+                setSort(event.target.value)
+                setCatalogPage(1)
+              }}>
                 <option value="featured">Sắp xếp: Nổi bật</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option>
               </select>
             </div>
           </div>
           <div className="filter-chips">
             <button className={`chip ${category === 'all' ? 'active' : ''}`} type="button" onClick={() => chooseCategory('all')}>Tất cả</button>
-            {catalogCategories.slice(0, 5).map((item) => <button className={`chip ${category === item.name ? 'active' : ''}`} data-category={item.name} key={item.name} type="button" onClick={() => chooseCategory(item.name)}>{item.name}</button>)}
+            {visibleCategories.slice(0, 5).map((item) => <button className={`chip ${category === item.id ? 'active' : ''}`} data-category={item.id} key={item.id} type="button" onClick={() => chooseCategory(item.id)}>{item.name}</button>)}
           </div>
           {catalogLoading ? (
             <div className="empty-state"><p>Đang tải sản phẩm...</p></div>
           ) : catalogError ? (
             <div className="empty-state"><h3>Không tải được sản phẩm</h3><p>{catalogError}</p></div>
-          ) : filteredProducts.length > 0 ? (
+          ) : products.length > 0 ? (
             <div className="product-grid">
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <article
                   className="product-card product-card-clickable"
                   data-id={product.id}
@@ -514,10 +632,11 @@ function CustomerApp() {
                 >
                   <span className="product-badge">{product.badge}</span>
                   <div className="product-image" style={{ background: product.color }}>
-                    {product.image ? <img src={product.image} alt={product.name} /> : <span className="image-emoji">{product.emoji}</span>}
+                    {product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <span className="image-emoji">{product.emoji}</span>}
                   </div>
                   <div className="product-info">
                     <h3>{product.name}</h3>
+                    <small className="product-store-label">{product.store?.name}</small>
                     <div className="price-row"><span className="price">{formatPrice(product.price)}</span></div>
                     <div className="product-meta"><span>{product.stock > 0 ? `Còn ${product.stock} sản phẩm` : 'Tạm hết hàng'}</span></div>
                     <button className="add-cart" type="button" disabled={product.stock === 0} onClick={(event) => { event.stopPropagation(); addToCart(product) }}>＋ Thêm vào giỏ</button>
@@ -530,6 +649,12 @@ function CustomerApp() {
               <span>⌕</span><h3>Chưa tìm thấy sản phẩm</h3><p>Thử từ khóa khác hoặc chọn danh mục khác nhé.</p>
               <button className="primary-btn" type="button" onClick={() => { setSearch(''); chooseCategory('all') }}>Xem tất cả sản phẩm</button>
             </div>
+          )}
+          {!catalogLoading && !catalogError && (
+            <ProductPagination
+              pagination={pagination}
+              onPageChange={changeCatalogPage}
+            />
           )}
         </section>
 
@@ -544,7 +669,7 @@ function CustomerApp() {
 
       <footer id="footer">
         <div className="container footer-grid">
-          <div className="footer-brand"><a className="brand" href="/" onClick={(event) => { event.preventDefault(); goHome() }}><span className="brand-mark">N<span>✦</span></span><span className="brand-name">NOVIQ<small>ONE PLATFORM. EVERY NEED.</small></span></a><p>Một điểm đến cho mọi nhu cầu mua sắm. Khám phá, lựa chọn và tận hưởng trải nghiệm mua sắm tiện lợi.</p></div>
+          <div className="footer-brand"><a className="brand" href="/" onClick={(event) => { event.preventDefault(); goHome() }}><span className="brand-mark">N<span>✦</span></span><span className="brand-name"><span className="brand-word">NOVIQ</span><small>ONE PLATFORM. EVERY NEED.</small></span></a><p>Một điểm đến cho mọi nhu cầu mua sắm. Khám phá, lựa chọn và tận hưởng trải nghiệm mua sắm tiện lợi.</p></div>
           <div><h3>Về NOVIQ</h3><a href="#footer">Giới thiệu</a><a href="#footer">Cơ hội nghề nghiệp</a><a href="#footer">Tin tức</a></div>
           <div><h3>Hỗ trợ khách hàng</h3><a href="#support">Trung tâm hỗ trợ</a><a href="#support">Hướng dẫn mua hàng</a><a href="#support">Chính sách đổi trả</a></div>
           <div id="support"><h3>Kết nối với chúng tôi</h3><p>Email: support@noviq.example</p><p>Hotline: 1900 0000</p><div className="socials"><span>f</span><span>◎</span><span>▶</span></div></div>
@@ -566,13 +691,6 @@ function CustomerApp() {
           customer={customer}
           onClose={() => setCheckoutOpen(false)}
           onSubmit={handleOrderSubmit}
-        />
-      )}
-      {ordersOpen && (
-        <CustomerOrdersDialog
-          orders={customerOrders}
-          error={ordersError}
-          onClose={() => setOrdersOpen(false)}
         />
       )}
       <div className={`toast ${toast ? 'show' : ''}`} role="status" aria-live="polite">{toast}</div>
