@@ -8,7 +8,7 @@ substitutions:
   _DATABASE_URL_SECRET: noviq-database-url
   _SECRET_KEY_SECRET: noviq-secret-key
   _RUNTIME_SERVICE_ACCOUNT: adminservice@noviq-ecommerce-dev.iam.gserviceaccount.com
-  _CORS_ORIGINS: "https://front-end-noviq.web.app,https://front-end-noviq.firebaseapp.com"
+  _CORS_ORIGINS: "https://front-end-noviq-4f06e.web.app,https://front-end-noviq-4f06e.firebaseapp.com"
   _PRODUCT_IMAGES_BUCKET: noviq-product-images
 
 steps:

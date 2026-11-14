@@ -26,7 +26,7 @@ steps:
       - deploy
       - --only
       - hosting
-      - --project=front-end-noviq
+      - --project=noviq-ecommerce-dev
       - --non-interactive
 
 options:

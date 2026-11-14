@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site":"front-end-noviq",
+    "site":"front-end-noviq-4f06e",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
